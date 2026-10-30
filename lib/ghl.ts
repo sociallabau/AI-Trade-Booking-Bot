@@ -62,7 +62,7 @@ export async function addTags(contactId: string, tags: string[]) {
 
 export async function getContact(contactId: string) {
   const r = await ghl(`/contacts/${contactId}`);
-  return r.contact as { firstName?: string; tags?: string[] };
+  return r.contact as { firstName?: string; tags?: string[]; locationId?: string };
 }
 
 /** Returns up to `max` upcoming slots as ISO strings. */

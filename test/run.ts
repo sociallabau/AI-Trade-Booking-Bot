@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 
 process.env.WEBHOOK_SECRET = "s3cret";
 process.env.GHL_API_TOKEN = "t";
-process.env.GHL_LOCATION_ID = "loc1";
 process.env.ANTHROPIC_API_KEY = "k";
 
 const { toClaudeMessages } = await import("../lib/ai");
@@ -29,7 +28,7 @@ globalThis.fetch = (async (url: any, init: any = {}) => {
   const json = (o: any) => new Response(JSON.stringify(o), { status: 200 });
   calls.push(`${init.method || "GET"} ${u.replace("https://services.leadconnectorhq.com", "")}`);
   if (u.includes("/contacts/c1/notes") || u.includes("/contacts/c1/tags")) return json({});
-  if (u.endsWith("/contacts/c1")) return json({ contact: { firstName: "Sam", tags: contactTags } });
+  if (u.endsWith("/contacts/c1")) return json({ contact: { firstName: "Sam", tags: contactTags, locationId: "loc1" } });
   if (u.includes("/conversations/search")) return json({ conversations: [{ id: "conv1" }] });
   if (u.includes("/conversations/conv1/messages"))
     return json({
@@ -62,13 +61,23 @@ globalThis.fetch = (async (url: any, init: any = {}) => {
 function call(headers: any, body: any) {
   let status = 0, payload: any;
   const res: any = { status: (s: number) => ((status = s), res), json: (p: any) => ((payload = p), res), end: () => res };
-  return handler({ method: "POST", headers, body } as any, res).then(() => ({ status, payload }));
+  return handler({ method: "POST", headers, body, query: {} } as any, res).then(() => ({ status, payload }));
 }
 
 assert.equal((await call({}, { contact_id: "c1" })).status, 401);
 
-const r = await call({ "x-webhook-secret": "s3cret" }, { contact_id: "c1", location: { id: "loc1" } });
+const r = await call({ "x-webhook-secret": "s3cret" }, { contact_id: "c1" });
 assert.equal(r.status, 200);
+// secret also accepted as ?secret= on the URL
+const rq = await (async () => {
+  claudeTurn = 0;
+  let status = 0;
+  const res: any = { status: (s: number) => ((status = s), res), json: () => res, end: () => res };
+  await handler({ method: "POST", headers: {}, query: { secret: "s3cret" }, body: { contact_id: "c1" } } as any, res);
+  return status;
+})();
+assert.equal(rq, 200);
+sent.length = 1; // ignore the extra reply that check produced
 assert.equal(sent.length, 1);
 assert.match(sent[0].message, /photo/);
 assert.equal(sent[0].contactId, "c1");

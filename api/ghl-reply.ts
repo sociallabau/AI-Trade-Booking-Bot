@@ -12,17 +12,20 @@ const HUMAN_TAGS = ["ai-stop", "ai-booked", "ai-handoff"];
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).end();
-  if (!process.env.WEBHOOK_SECRET || req.headers["x-webhook-secret"] !== process.env.WEBHOOK_SECRET) {
+  // Secret can be sent as a header or as ?secret= on the URL (some GHL accounts have no header box).
+  const given = req.headers["x-webhook-secret"] ?? req.query.secret;
+  if (!process.env.WEBHOOK_SECRET || given !== process.env.WEBHOOK_SECRET) {
     return res.status(401).json({ error: "unauthorized" });
   }
 
   const body = req.body || {};
   const contactId: string | undefined = body.contact_id || body.contactId || body.contact?.id;
-  const locationId: string = body.location?.id || body.locationId || process.env.GHL_LOCATION_ID || "";
-  if (!contactId || !locationId) return res.status(400).json({ error: "missing contact_id / location id" });
+  if (!contactId) return res.status(400).json({ error: "missing contact_id" });
 
   try {
     const contact = await getContact(contactId);
+    const locationId = contact.locationId || body.location?.id || body.locationId;
+    if (!locationId) return res.status(400).json({ error: "could not work out location" });
     // A human has taken over, or the bot already finished: stay quiet.
     if (contact.tags?.some((t) => HUMAN_TAGS.includes(t.toLowerCase()))) {
       return res.status(200).json({ skipped: "human-or-finished tag" });

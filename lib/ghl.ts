@@ -1,16 +1,17 @@
 const BASE = "https://services.leadconnectorhq.com";
 
-function headers() {
+// GHL versions its APIs per area: contacts use 2021-07-28, conversations/calendars 2021-04-15.
+function headers(path: string) {
   return {
     Authorization: `Bearer ${process.env.GHL_API_TOKEN}`,
-    Version: "2021-04-15",
+    Version: path.startsWith("/contacts") ? "2021-07-28" : "2021-04-15",
     "Content-Type": "application/json",
     Accept: "application/json",
   };
 }
 
 async function ghl<T = any>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { ...init, headers: { ...headers(), ...(init.headers || {}) } });
+  const res = await fetch(`${BASE}${path}`, { ...init, headers: { ...headers(path), ...(init.headers || {}) } });
   const text = await res.text();
   if (!res.ok) throw new Error(`GHL ${init.method || "GET"} ${path} -> ${res.status}: ${text.slice(0, 300)}`);
   return text ? JSON.parse(text) : ({} as T);
